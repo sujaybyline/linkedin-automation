@@ -66,7 +66,7 @@ function builtinSlotsFromConfig(config) {
     slots.push({
       key: "ollama-hosted",
       type: "ollama",
-      apiKey: "",
+      apiKey: config.ollamaApiKey || "",  // Use API key for hosted Ollama
       model: config.ollamaModel,
       baseUrl: hostedUrls.join(","),
       label: "Ollama (Hosted)",
@@ -77,7 +77,7 @@ function builtinSlotsFromConfig(config) {
     slots.push({
       key: "ollama-local",
       type: "ollama",
-      apiKey: "",
+      apiKey: "",  // Local Ollama doesn't need API key
       model: config.ollamaModel,
       baseUrl: localUrls.join(","),
       label: "Ollama (Local)",

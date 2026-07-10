@@ -178,7 +178,7 @@ async function callGroqText({ apiKey, model, prompt, maxTokens, temperature, jso
   });
 }
 
-async function callOllamaText({ baseUrl, model, prompt, maxTokens, temperature, jsonMode }) {
+async function callOllamaText({ baseUrl, apiKey, model, prompt, maxTokens, temperature, jsonMode }) {
   const urls = (baseUrl || "")
     .split(",")
     .map((s) => s.trim())
@@ -186,36 +186,67 @@ async function callOllamaText({ baseUrl, model, prompt, maxTokens, temperature, 
     .map((s) => s.replace(/\/$/, ""));
   if (!urls.length) throw new Error("Ollama base URL is not configured");
 
-  const payload = {
-    model: model || "llama3.1:8b",
-    stream: false,
-    options: {
-      temperature,
-      num_predict: maxTokens,
-    },
-    messages: [
-      {
-        role: "user",
-        content: jsonMode
-          ? `${prompt}\n\nReturn valid JSON only — no markdown fences.`
-          : prompt,
-      },
-    ],
-  };
+  // Check if this is the panworld-portal hosted instance (uses different API format)
+  const isPanworldHosted = urls.some(url => url.includes('panworld-portal'));
 
   let lastErr;
   for (const url of urls) {
     try {
-      const res = await fetch(`${url}/api/chat`, {
+      // Determine if this is a hosted Ollama (requires API key)
+      const isHosted = apiKey && apiKey.trim();
+      
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add Authorization header for hosted Ollama
+      if (isHosted) {
+        headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+      }
+      
+      // Build the full endpoint URL
+      const endpoint = url.includes('/api') ? `${url}/chat` : `${url}/api/chat`;
+      
+      // Use different payload format for panworld-portal
+      let payload;
+      if (isPanworldHosted) {
+        // Panworld portal format: { model, question }
+        payload = {
+          model: model || "qwen3:8b",
+          question: jsonMode
+            ? `${prompt}\n\nReturn valid JSON only — no markdown fences.`
+            : prompt,
+        };
+      } else {
+        // Standard Ollama format: { model, messages, stream, options }
+        payload = {
+          model: model || "llama3.1:8b",
+          stream: false,
+          options: {
+            temperature,
+            num_predict: maxTokens,
+          },
+          messages: [
+            {
+              role: "user",
+              content: jsonMode
+                ? `${prompt}\n\nReturn valid JSON only — no markdown fences.`
+                : prompt,
+            },
+          ],
+        };
+      }
+      
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
       const raw = await res.text();
       if (!res.ok) {
         let detail = raw.slice(0, 500);
         try {
-          detail = JSON.parse(raw)?.error || detail;
+          detail = JSON.parse(raw)?.error || JSON.parse(raw)?.message || detail;
         } catch {
           /* ignore */
         }
@@ -232,7 +263,17 @@ async function callOllamaText({ baseUrl, model, prompt, maxTokens, temperature, 
         throw new Error(`Ollama API error (${res.status}): ${detail}`);
       }
       const data = JSON.parse(raw);
-      const text = data?.message?.content?.trim() || data?.response?.trim() || "";
+      
+      // Handle different response formats
+      let text;
+      if (isPanworldHosted) {
+        // Panworld portal response format
+        text = data?.data?.message?.[0]?.content?.trim() || "";
+      } else {
+        // Standard Ollama response format
+        text = data?.message?.content?.trim() || data?.response?.trim() || "";
+      }
+      
       if (!text) throw new Error("Empty response from Ollama");
       return { text, source: "ollama", model: payload.model };
     } catch (err) {

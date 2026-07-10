@@ -10,6 +10,7 @@ const SETTING_KEYS = [
   "ollama_model",
   "ai_provider",
   "ai_extra_providers",
+  // Note: ollama_api_key is NOT stored in database - use .env file only
 ];
 
 async function getSettingsMap() {

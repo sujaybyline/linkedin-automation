@@ -51,6 +51,7 @@ module.exports = {
   OPENAI_API_KEY: (process.env.OPENAI_API_KEY || "").trim(),
   OPENAI_MODEL: (process.env.OPENAI_MODEL || "gpt-4o-mini").trim(),
   OLLAMA_BASE_URL: (process.env.OLLAMA_BASE_URL || "").trim(),
+  OLLAMA_API_KEY: (process.env.OLLAMA_API_KEY || "").trim(),
   OLLAMA_MODEL: (process.env.OLLAMA_MODEL || "llama3.1:8b").trim(),
   AI_PROVIDER: (process.env.AI_PROVIDER || "auto").trim().toLowerCase(),
 };

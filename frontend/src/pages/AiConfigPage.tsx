@@ -52,6 +52,9 @@ interface AiConfig {
   openai_api_key_from_db: boolean;
   openai_model: string;
   ollama_base_url: string;
+  ollama_api_key_masked: string;
+  ollama_api_key_set: boolean;
+  ollama_api_key_from_db: boolean;
   ollama_model: string;
   ollama_base_url_set: boolean;
   ollama_base_url_from_db: boolean;
@@ -80,6 +83,7 @@ interface AiConfig {
   env_fallback_gemini: boolean;
   env_fallback_openai: boolean;
   env_fallback_ollama: boolean;
+  env_fallback_ollama_api_key: boolean;
   env_fallback_ollama_hosted: boolean;
   extra_providers: ExtraProvider[];
   active_provider_count: number;
@@ -182,6 +186,7 @@ export function AiConfigPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [ollamaApiKey, setOllamaApiKey] = useState("");
   const [ollamaLocalBaseUrl, setOllamaLocalBaseUrl] = useState("");
   const [ollamaHostedBaseUrl, setOllamaHostedBaseUrl] = useState("");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-lite");
@@ -211,6 +216,7 @@ export function AiConfigPage() {
   
   const [geminiKeyTouched, setGeminiKeyTouched] = useState(false);
   const [openaiKeyTouched, setOpenaiKeyTouched] = useState(false);
+  const [ollamaApiKeyTouched, setOllamaApiKeyTouched] = useState(false);
   const [ollamaLocalBaseUrlTouched, setOllamaLocalBaseUrlTouched] = useState(false);
   const [ollamaHostedBaseUrlTouched, setOllamaHostedBaseUrlTouched] = useState(false);
   const [extras, setExtras] = useState<ExtraProviderDraft[]>([]);
@@ -321,6 +327,7 @@ export function AiConfigPage() {
 
     if (geminiKeyTouched) body.gemini_api_key = geminiKey;
     if (openaiKeyTouched) body.openai_api_key = openaiKey;
+    if (ollamaApiKeyTouched) body.ollama_api_key = ollamaApiKey;
     if (ollamaLocalBaseUrlTouched || ollamaHostedBaseUrlTouched) {
       const urls = [ollamaLocalBaseUrl.trim(), ollamaHostedBaseUrl.trim()].filter(Boolean);
       body.ollama_base_url = urls.join(",");
@@ -342,8 +349,10 @@ export function AiConfigPage() {
       applyConfig(updated);
       setGeminiKey("");
       setOpenaiKey("");
+      setOllamaApiKey("");
       setGeminiKeyTouched(false);
       setOpenaiKeyTouched(false);
+      setOllamaApiKeyTouched(false);
       setOllamaLocalBaseUrlTouched(false);
       setOllamaHostedBaseUrlTouched(false);
       setOllamaHostedModelTouched(false);
@@ -591,13 +600,13 @@ export function AiConfigPage() {
             <ProviderCard
               title="Ollama (Hosted)"
               accent={PROVIDER_COLORS.ollama}
-              description="Use a publicly accessible or hosted Ollama endpoint with advanced RAG features"
+              description="Use a publicly accessible or hosted Ollama endpoint with Bearer token authentication"
             >
               <KeyStatus
-                masked={ollamaHostedBaseUrl || "Not configured"}
-                set={Boolean(ollamaHostedBaseUrl)}
-                fromDb={Boolean(config?.ollama_base_url_from_db)}
-                envFallback={Boolean(config?.env_fallback_ollama_hosted)}
+                masked={config?.ollama_api_key_masked || "Not configured"}
+                set={Boolean(config?.ollama_api_key_set)}
+                fromDb={Boolean(config?.ollama_api_key_from_db)}
+                envFallback={Boolean(config?.env_fallback_ollama_api_key)}
               />
               <div className="mt-4 space-y-3">
                 <div>
@@ -609,142 +618,34 @@ export function AiConfigPage() {
                       setOllamaHostedBaseUrl(e.target.value);
                       setOllamaHostedBaseUrlTouched(true);
                     }}
-                    placeholder="http://your-ollama-host.com:11434"
+                    placeholder="https://ai.panworld-portal.cloud/api/ai"
                     className={inputClass()}
                     autoComplete="off"
                   />
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Use this for a publicly accessible or hosted Ollama endpoint.
+                    Base URL without /chat endpoint (e.g., https://your-host.com/api/ai)
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Default Model</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedModel}
-                      onChange={(e) => {
-                        setOllamaHostedModel(e.target.value);
-                        setOllamaHostedModelTouched(true);
-                      }}
-                      placeholder="qwen2.5:14b-instruct"
-                      className={inputClass()}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Embedding Model</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedEmbeddingModel}
-                      onChange={(e) => {
-                        setOllamaHostedEmbeddingModel(e.target.value);
-                        setOllamaHostedEmbeddingModelTouched(true);
-                      }}
-                      placeholder="nomic-embed-text"
-                      className={inputClass()}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Embedding Dimension</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedEmbeddingDim}
-                      onChange={(e) => {
-                        setOllamaHostedEmbeddingDim(e.target.value);
-                        setOllamaHostedEmbeddingDimTouched(true);
-                      }}
-                      placeholder="768"
-                      className={inputClass()}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Question Gen Model</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedQuestionModel}
-                      onChange={(e) => {
-                        setOllamaHostedQuestionModel(e.target.value);
-                        setOllamaHostedQuestionModelTouched(true);
-                      }}
-                      placeholder="qwen2.5:14b-instruct"
-                      className={inputClass()}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Analysis Model</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedAnalysisModel}
-                      onChange={(e) => {
-                        setOllamaHostedAnalysisModel(e.target.value);
-                        setOllamaHostedAnalysisModelTouched(true);
-                      }}
-                      placeholder="qwen2.5:14b-instruct"
-                      className={inputClass()}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">RAG Top K</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedRagTopK}
-                      onChange={(e) => {
-                        setOllamaHostedRagTopK(e.target.value);
-                        setOllamaHostedRagTopKTouched(true);
-                      }}
-                      placeholder="5"
-                      className={inputClass()}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Num GPU</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedNumGpu}
-                      onChange={(e) => {
-                        setOllamaHostedNumGpu(e.target.value);
-                        setOllamaHostedNumGpuTouched(true);
-                      }}
-                      placeholder="0"
-                      className={inputClass()}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Context Size</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedNumCtx}
-                      onChange={(e) => {
-                        setOllamaHostedNumCtx(e.target.value);
-                        setOllamaHostedNumCtxTouched(true);
-                      }}
-                      placeholder="8192"
-                      className={inputClass()}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">Timeout (ms)</label>
-                    <input
-                      type="text"
-                      value={ollamaHostedChatTimeout}
-                      onChange={(e) => {
-                        setOllamaHostedChatTimeout(e.target.value);
-                        setOllamaHostedChatTimeoutTouched(true);
-                      }}
-                      placeholder="900000"
-                      className={inputClass()}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                    <Key className="h-3 w-3" /> API Key (Bearer Token)
+                  </label>
+                  <input
+                    type="password"
+                    value={ollamaApiKey}
+                    readOnly
+                    disabled
+                    placeholder="Set in .env file (OLLAMA_API_KEY)"
+                    className={`${inputClass()} opacity-60 cursor-not-allowed`}
+                    autoComplete="off"
+                  />
+                  <p className="mt-1 text-[11px] text-amber-400">
+                    ⚠️ For security, API key must be set in .env file only (not in database)
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Edit backend/.env and set: OLLAMA_API_KEY=your_key_here
+                  </p>
                 </div>
               </div>
             </ProviderCard>

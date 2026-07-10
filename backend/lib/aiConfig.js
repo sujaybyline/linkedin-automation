@@ -81,6 +81,9 @@ function mergeConfig(db) {
 
   const ollamaBaseUrlFromDb = (db.ollama_base_url || "").trim();
   
+  // Ollama API Key - ALWAYS use .env, never database (to avoid SQL injection issues)
+  const ollamaApiKeyFromEnv = (env.OLLAMA_API_KEY || "").trim();
+  
   // Ollama Hosted specific configs
   const ollamaHostedModelFromDb = (db.ollama_hosted_model || "").trim();
   const ollamaHostedEmbeddingModelFromDb = (db.ollama_hosted_embedding_model || "").trim();
@@ -99,6 +102,7 @@ function mergeConfig(db) {
     geminiModel: (db.gemini_model || env.GEMINI_MODEL || "gemini-2.5-flash-lite").trim(),
     openaiModel: (db.openai_model || env.OPENAI_MODEL || "gpt-4o-mini").trim(),
     ollamaBaseUrl: ollamaBaseUrlFromDb || (env.OLLAMA_BASE_URL || "").trim(),
+    ollamaApiKey: ollamaApiKeyFromEnv,  // ALWAYS from .env only
     ollamaModel: (db.ollama_model || env.OLLAMA_MODEL || "llama3.1:8b").trim(),
     
     // Ollama Hosted specific configs
@@ -116,6 +120,7 @@ function mergeConfig(db) {
     geminiKeyFromDb: Boolean(geminiFromDb),
     openaiKeyFromDb: Boolean(openaiFromDb),
     ollamaBaseUrlFromDb: Boolean(ollamaBaseUrlFromDb),
+    ollamaApiKeyFromDb: false,  // Never from DB
     
     // Track if Ollama Hosted configs are from DB
     ollamaHostedModelFromDb: Boolean(ollamaHostedModelFromDb),
@@ -188,6 +193,9 @@ async function getAiConfigForAdmin() {
     openai_api_key_from_db: merged.openaiKeyFromDb,
     openai_model: merged.openaiModel,
     ollama_base_url: merged.ollamaBaseUrl,
+    ollama_api_key_masked: maskSecret(merged.ollamaApiKey),
+    ollama_api_key_set: Boolean(merged.ollamaApiKey),
+    ollama_api_key_from_db: merged.ollamaApiKeyFromDb,
     ollama_model: merged.ollamaModel,
     ollama_base_url_set: Boolean(merged.ollamaBaseUrl),
     ollama_base_url_from_db: merged.ollamaBaseUrlFromDb,
@@ -216,6 +224,7 @@ async function getAiConfigForAdmin() {
     env_fallback_gemini: !merged.geminiKeyFromDb && Boolean((env.GEMINI_API_KEY || "").trim()),
     env_fallback_openai: !merged.openaiKeyFromDb && Boolean((env.OPENAI_API_KEY || "").trim()),
     env_fallback_ollama: !merged.ollamaBaseUrlFromDb && Boolean((env.OLLAMA_BASE_URL || "").trim()),
+    env_fallback_ollama_api_key: Boolean((env.OLLAMA_API_KEY || "").trim()),  // Always from .env
     env_fallback_ollama_hosted: !merged.ollamaHostedModelFromDb && Boolean((env.DEFAULT_AI_MODEL || "").trim()),
     extra_providers: merged.extraProviders.map(extraProviderForAdmin),
     active_provider_count:
@@ -256,6 +265,8 @@ async function updateAiConfig(body, userId) {
     if (!value) await deleteSetting("ollama_base_url");
     else updates.ollama_base_url = value;
   }
+
+  // Note: ollama_api_key is NOT saved to database - use .env file only
 
   // Ollama Hosted specific configs
   if (body.ollama_hosted_model?.trim()) {
