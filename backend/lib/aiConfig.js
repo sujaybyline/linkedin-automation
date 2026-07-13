@@ -81,7 +81,7 @@ function mergeConfig(db) {
 
   const ollamaBaseUrlFromDb = (db.ollama_base_url || "").trim();
   
-  // Ollama API Key - ALWAYS use .env, never database (to avoid SQL injection issues)
+  // Ollama hosted API key — .env only (never stored in database)
   const ollamaApiKeyFromEnv = (env.OLLAMA_API_KEY || "").trim();
   
   // Ollama Hosted specific configs
@@ -139,6 +139,9 @@ function mergeConfig(db) {
 
 async function loadMergedConfig() {
   const db = await getSettingsMap();
+  // Remove legacy hosted Ollama key rows — .env is the only source
+  const { query } = require("../db");
+  await query("DELETE FROM app_settings WHERE setting_key = ?", ["ollama_api_key"]).catch(() => {});
   return mergeConfig(db);
 }
 
@@ -266,7 +269,11 @@ async function updateAiConfig(body, userId) {
     else updates.ollama_base_url = value;
   }
 
-  // Note: ollama_api_key is NOT saved to database - use .env file only
+  // Ollama hosted API key — .env only; ignore any legacy DB/API attempts
+  if (body.ollama_api_key !== undefined) {
+    const { query } = require("../db");
+    await query("DELETE FROM app_settings WHERE setting_key = ?", ["ollama_api_key"]).catch(() => {});
+  }
 
   // Ollama Hosted specific configs
   if (body.ollama_hosted_model?.trim()) {

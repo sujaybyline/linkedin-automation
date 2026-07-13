@@ -186,7 +186,6 @@ export function AiConfigPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
-  const [ollamaApiKey, setOllamaApiKey] = useState("");
   const [ollamaLocalBaseUrl, setOllamaLocalBaseUrl] = useState("");
   const [ollamaHostedBaseUrl, setOllamaHostedBaseUrl] = useState("");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-lite");
@@ -216,7 +215,6 @@ export function AiConfigPage() {
   
   const [geminiKeyTouched, setGeminiKeyTouched] = useState(false);
   const [openaiKeyTouched, setOpenaiKeyTouched] = useState(false);
-  const [ollamaApiKeyTouched, setOllamaApiKeyTouched] = useState(false);
   const [ollamaLocalBaseUrlTouched, setOllamaLocalBaseUrlTouched] = useState(false);
   const [ollamaHostedBaseUrlTouched, setOllamaHostedBaseUrlTouched] = useState(false);
   const [extras, setExtras] = useState<ExtraProviderDraft[]>([]);
@@ -327,7 +325,7 @@ export function AiConfigPage() {
 
     if (geminiKeyTouched) body.gemini_api_key = geminiKey;
     if (openaiKeyTouched) body.openai_api_key = openaiKey;
-    if (ollamaApiKeyTouched) body.ollama_api_key = ollamaApiKey;
+    // Ollama hosted API key is .env only — never sent to the server
     if (ollamaLocalBaseUrlTouched || ollamaHostedBaseUrlTouched) {
       const urls = [ollamaLocalBaseUrl.trim(), ollamaHostedBaseUrl.trim()].filter(Boolean);
       body.ollama_base_url = urls.join(",");
@@ -349,10 +347,8 @@ export function AiConfigPage() {
       applyConfig(updated);
       setGeminiKey("");
       setOpenaiKey("");
-      setOllamaApiKey("");
       setGeminiKeyTouched(false);
       setOpenaiKeyTouched(false);
-      setOllamaApiKeyTouched(false);
       setOllamaLocalBaseUrlTouched(false);
       setOllamaHostedBaseUrlTouched(false);
       setOllamaHostedModelTouched(false);
@@ -602,13 +598,19 @@ export function AiConfigPage() {
               accent={PROVIDER_COLORS.ollama}
               description="Use a publicly accessible or hosted Ollama endpoint with Bearer token authentication"
             >
-              <KeyStatus
-                masked={config?.ollama_api_key_masked || "Not configured"}
-                set={Boolean(config?.ollama_api_key_set)}
-                fromDb={Boolean(config?.ollama_api_key_from_db)}
-                envFallback={Boolean(config?.env_fallback_ollama_api_key)}
-              />
               <div className="mt-4 space-y-3">
+                <div className="rounded-lg border border-slate-700/80 bg-slate-950/50 px-3 py-2.5">
+                  <p className="text-xs font-medium text-slate-300">API key (.env only)</p>
+                  <p className="mt-1 font-mono text-xs text-slate-400">
+                    {config?.ollama_api_key_set
+                      ? config.ollama_api_key_masked
+                      : "Not configured — set OLLAMA_API_KEY in backend/.env"}
+                  </p>
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Hosted Ollama keys are not stored in the database. Edit{" "}
+                    <code className="text-slate-400">backend/.env</code> and restart the backend.
+                  </p>
+                </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-slate-400">Hosted URL</label>
                   <input
@@ -624,27 +626,6 @@ export function AiConfigPage() {
                   />
                   <p className="mt-1 text-[11px] text-slate-500">
                     Base URL without /chat endpoint (e.g., https://your-host.com/api/ai)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400">
-                    <Key className="h-3 w-3" /> API Key (Bearer Token)
-                  </label>
-                  <input
-                    type="password"
-                    value={ollamaApiKey}
-                    readOnly
-                    disabled
-                    placeholder="Set in .env file (OLLAMA_API_KEY)"
-                    className={`${inputClass()} opacity-60 cursor-not-allowed`}
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-[11px] text-amber-400">
-                    ⚠️ For security, API key must be set in .env file only (not in database)
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Edit backend/.env and set: OLLAMA_API_KEY=your_key_here
                   </p>
                 </div>
               </div>

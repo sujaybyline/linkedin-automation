@@ -178,6 +178,47 @@ async function callGroqText({ apiKey, model, prompt, maxTokens, temperature, jso
   });
 }
 
+// Hosted AI gateway WAF blocks patterns that look like SQL (hashtags, --, keywords, quotes).
+const PANWORLD_FULLWIDTH_HASH = "\uFF03";
+const PANWORLD_EM_DASH = "\u2014";
+const PANWORLD_TYPOGRAPHIC_APOSTROPHE = "\u2019";
+const PANWORLD_SQL_KEYWORDS =
+  /\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|FROM|WHERE|INTO|TABLE)\b/gi;
+
+function sanitizePanworldQuestion(text) {
+  let s = String(text || "");
+  s = s.replace(/#/g, PANWORLD_FULLWIDTH_HASH);
+  s = s.replace(/--/g, PANWORLD_EM_DASH);
+  s = s.replace(/`/g, PANWORLD_TYPOGRAPHIC_APOSTROPHE);
+  // Possessives like India's / Bosch's trigger SQL-string detection on the gateway
+  s = s.replace(/'/g, PANWORLD_TYPOGRAPHIC_APOSTROPHE);
+  s = s.replace(PANWORLD_SQL_KEYWORDS, (m) => m.split("").join("\u200B"));
+  return s;
+}
+
+function resolvePanworldChatEndpoint(url) {
+  const base = String(url || "").trim().replace(/\/$/, "");
+  if (base.endsWith("/api/ai/chat")) return base;
+  if (base.endsWith("/api/ai")) return `${base}/chat`;
+  if (base.endsWith("/chat")) {
+    return base.replace(/\/ai\/api\/chat$/, "/api/ai/chat");
+  }
+  return `${base}/api/ai/chat`;
+}
+
+function resolveOllamaChatEndpoint(url, isHostedGateway) {
+  if (isHostedGateway) return resolvePanworldChatEndpoint(url);
+  return url.includes("/api") ? `${url}/chat` : `${url}/api/chat`;
+}
+
+function extractPanworldMessageText(data) {
+  const message = data?.data?.message;
+  if (Array.isArray(message)) {
+    return message.map((m) => m?.content || "").join("").trim();
+  }
+  return String(message?.content || "").trim();
+}
+
 async function callOllamaText({ baseUrl, apiKey, model, prompt, maxTokens, temperature, jsonMode }) {
   const urls = (baseUrl || "")
     .split(",")
@@ -186,14 +227,12 @@ async function callOllamaText({ baseUrl, apiKey, model, prompt, maxTokens, tempe
     .map((s) => s.replace(/\/$/, ""));
   if (!urls.length) throw new Error("Ollama base URL is not configured");
 
-  // Check if this is the panworld-portal hosted instance (uses different API format)
-  const isPanworldHosted = urls.some(url => url.includes('panworld-portal'));
+  const isHostedGateway = Boolean((apiKey || "").trim());
 
   let lastErr;
   for (const url of urls) {
     try {
-      // Determine if this is a hosted Ollama (requires API key)
-      const isHosted = apiKey && apiKey.trim();
+      const isHosted = isHostedGateway;
       
       const headers = {
         "Content-Type": "application/json",
@@ -204,18 +243,17 @@ async function callOllamaText({ baseUrl, apiKey, model, prompt, maxTokens, tempe
         headers["Authorization"] = `Bearer ${apiKey.trim()}`;
       }
       
-      // Build the full endpoint URL
-      const endpoint = url.includes('/api') ? `${url}/chat` : `${url}/api/chat`;
-      
-      // Use different payload format for panworld-portal
+      const endpoint = resolveOllamaChatEndpoint(url, isHostedGateway);
+
+      // Use gateway API format when Bearer token is configured (hosted Ollama)
       let payload;
-      if (isPanworldHosted) {
-        // Panworld portal format: { model, question }
+      if (isHostedGateway) {
+        const question = jsonMode
+          ? `${prompt}\n\nReturn valid JSON only — no markdown fences.`
+          : prompt;
         payload = {
           model: model || "qwen3:8b",
-          question: jsonMode
-            ? `${prompt}\n\nReturn valid JSON only — no markdown fences.`
-            : prompt,
+          question: sanitizePanworldQuestion(question),
         };
       } else {
         // Standard Ollama format: { model, messages, stream, options }
@@ -266,9 +304,8 @@ async function callOllamaText({ baseUrl, apiKey, model, prompt, maxTokens, tempe
       
       // Handle different response formats
       let text;
-      if (isPanworldHosted) {
-        // Panworld portal response format
-        text = data?.data?.message?.[0]?.content?.trim() || "";
+      if (isHostedGateway) {
+        text = extractPanworldMessageText(data);
       } else {
         // Standard Ollama response format
         text = data?.message?.content?.trim() || data?.response?.trim() || "";
