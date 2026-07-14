@@ -5,7 +5,7 @@ import { CompanyIntelDisplay, type CompanyIntelData } from "../components/Compan
 import { useCompanyProfiles } from "../context/CompanyProfilesContext";
 import { apiGet, apiPost } from "../services/api";
 
-type AiProvider = "gemini" | "openai" | "ollama" | "ollama-local" | "ollama-hosted" | "auto";
+type AiProvider = "gemini" | "openai" | "ollama" | "ollama-hosted" | "auto";
 
 interface CompanyIntel extends CompanyIntelData {
   profileId?: number;
@@ -30,7 +30,7 @@ export function FetchInfoPage() {
   const [message, setMessage] = useState("");
   const [intel, setIntel] = useState<CompanyIntel | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
-  const [availableProviders, setAvailableProviders] = useState<AiProvider[]>(["gemini", "openai", "ollama-hosted", "ollama-local"]);
+  const [availableProviders, setAvailableProviders] = useState<AiProvider[]>(["gemini", "openai", "ollama-hosted"]);
 
   function handleFilesSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFiles = Array.from(e.target.files || []);
@@ -193,9 +193,6 @@ export function FetchInfoPage() {
                 {availableProviders.includes("openai") && <option value="openai">OpenAI</option>}
                 {availableProviders.includes("ollama-hosted") && (
                   <option value="ollama-hosted">Ollama (Hosted)</option>
-                )}
-                {availableProviders.includes("ollama-local") && (
-                  <option value="ollama-local">Ollama (Local)</option>
                 )}
                 {availableProviders.includes("ollama") && <option value="ollama">Ollama</option>}
               </select>

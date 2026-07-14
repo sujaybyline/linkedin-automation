@@ -62,33 +62,25 @@ export function HomePage() {
   const location = useLocation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [posts, setPosts] = useState<PostRow[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Only fetch data if user is authenticated
     if (!user) {
-      setLoading(false);
       return;
     }
-    
-    setLoading(true);
-    
+
     // Add a small delay to ensure token is properly available in all contexts
     const fetchData = async () => {
       // Wait for token and other contexts to be ready
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      try {
-        const [statsData, postsData] = await Promise.all([
-          apiGet<DashboardStats>("dashboard/stats").catch(() => null),
-          apiGet<PostRow[]>("dashboard/posts").catch(() => [])
-        ]);
-        
-        setStats(statsData);
-        setPosts(postsData || []);
-      } finally {
-        setLoading(false);
-      }
+      const [statsData, postsData] = await Promise.all([
+        apiGet<DashboardStats>("dashboard/stats").catch(() => null),
+        apiGet<PostRow[]>("dashboard/posts").catch(() => [])
+      ]);
+      
+      setStats(statsData);
+      setPosts(postsData || []);
     };
     
     fetchData();

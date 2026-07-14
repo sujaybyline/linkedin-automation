@@ -16,7 +16,7 @@ import { Building2, Layers } from "lucide-react";
 
 type PostMode = "manual" | "ai";
 type AiFlow = "have_image" | "text_to_image";
-type AiProvider = "gemini" | "openai" | "ollama" | "ollama-local" | "ollama-hosted" | "auto";
+type AiProvider = "gemini" | "openai" | "ollama" | "ollama-hosted" | "auto";
 
 interface CaptionResult {
   finalPostText: string;
@@ -67,7 +67,7 @@ export function PostsPage() {
   >([]);
 
   const [aiFlow, setAiFlow] = useState<AiFlow>("have_image");
-  const [availableProviders, setAvailableProviders] = useState<AiProvider[]>(["gemini", "openai", "ollama-hosted", "ollama-local"]);
+  const [availableProviders, setAvailableProviders] = useState<AiProvider[]>(["gemini", "openai", "ollama-hosted"]);
 
   const [uploading, setUploading] = useState(false);
   const [generatingCaption, setGeneratingCaption] = useState(false);
@@ -352,11 +352,14 @@ export function PostsPage() {
         count: count,
         provider: aiProvider,
       });
+      if (result.count !== count) {
+        throw new Error(`Requested ${count} posts but only ${result.count} were created`);
+      }
       setBatchResults(result.posts);
       setMessage(
         `Created ${result.count} text posts for ${result.companyName}. Opening All posts…`
       );
-      setTimeout(() => navigate("/all-posts"), 800);
+      setTimeout(() => navigate("/all-posts", { state: { refresh: Date.now() } }), 800);
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : "Batch generation failed"}`);
     } finally {
@@ -481,9 +484,6 @@ export function PostsPage() {
                   {availableProviders.includes("openai") && <option value="openai">OpenAI</option>}
                   {availableProviders.includes("ollama-hosted") && (
                     <option value="ollama-hosted">Ollama (Hosted)</option>
-                  )}
-                  {availableProviders.includes("ollama-local") && (
-                    <option value="ollama-local">Ollama (Local)</option>
                   )}
                   {availableProviders.includes("ollama") && <option value="ollama">Ollama</option>}
                 </select>
@@ -801,9 +801,6 @@ export function PostsPage() {
                     )}
                     {availableProviders.includes("ollama-hosted") && (
                       <option value="ollama-hosted">Ollama (Hosted)</option>
-                    )}
-                    {availableProviders.includes("ollama-local") && (
-                      <option value="ollama-local">Ollama (Local)</option>
                     )}
                     {availableProviders.includes("ollama") && (
                       <option value="ollama">Ollama</option>

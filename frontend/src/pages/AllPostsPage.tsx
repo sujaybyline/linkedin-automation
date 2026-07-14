@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { PageHeader, Badge } from "../components/ui";
 import { CardDeleteModal, CardEditModal, CardViewModal } from "../components/CardModals";
@@ -60,6 +61,7 @@ function postTypeLabel(campaign?: string) {
 }
 
 export function AllPostsPage() {
+  const location = useLocation();
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
@@ -70,12 +72,12 @@ export function AllPostsPage() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
   function load() {
-    apiGet<PostRow[]>("cards").then(setPosts).catch(() => setPosts([]));
+    apiGet<PostRow[]>(`cards?_=${Date.now()}`).then(setPosts).catch(() => setPosts([]));
   }
 
   useEffect(() => {
     load();
-  }, []);
+  }, [location.key]);
 
   const selectedCount = selected.size;
   const allSelected = posts.length > 0 && selectedCount === posts.length;

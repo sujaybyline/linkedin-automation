@@ -186,7 +186,6 @@ export function AiConfigPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
-  const [ollamaLocalBaseUrl, setOllamaLocalBaseUrl] = useState("");
   const [ollamaHostedBaseUrl, setOllamaHostedBaseUrl] = useState("");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-lite");
   const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
@@ -215,7 +214,6 @@ export function AiConfigPage() {
   
   const [geminiKeyTouched, setGeminiKeyTouched] = useState(false);
   const [openaiKeyTouched, setOpenaiKeyTouched] = useState(false);
-  const [ollamaLocalBaseUrlTouched, setOllamaLocalBaseUrlTouched] = useState(false);
   const [ollamaHostedBaseUrlTouched, setOllamaHostedBaseUrlTouched] = useState(false);
   const [extras, setExtras] = useState<ExtraProviderDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,7 +227,6 @@ export function AiConfigPage() {
     setGeminiModel(data.gemini_model);
     setOpenaiModel(data.openai_model);
     const parsedOllamaUrls = parseOllamaUrls(data.ollama_base_url || "");
-    setOllamaLocalBaseUrl(parsedOllamaUrls.filter(isLocalOllamaUrl).join(", "));
     setOllamaHostedBaseUrl(parsedOllamaUrls.filter((url) => !isLocalOllamaUrl(url)).join(", "));
     setOllamaModel(data.ollama_model || "llama3.1:8b");
     setAiProvider(data.ai_provider);
@@ -326,9 +323,8 @@ export function AiConfigPage() {
     if (geminiKeyTouched) body.gemini_api_key = geminiKey;
     if (openaiKeyTouched) body.openai_api_key = openaiKey;
     // Ollama hosted API key is .env only — never sent to the server
-    if (ollamaLocalBaseUrlTouched || ollamaHostedBaseUrlTouched) {
-      const urls = [ollamaLocalBaseUrl.trim(), ollamaHostedBaseUrl.trim()].filter(Boolean);
-      body.ollama_base_url = urls.join(",");
+    if (ollamaHostedBaseUrlTouched) {
+      body.ollama_base_url = ollamaHostedBaseUrl.trim();
     }
     
     // Ollama Hosted configs
@@ -349,7 +345,6 @@ export function AiConfigPage() {
       setOpenaiKey("");
       setGeminiKeyTouched(false);
       setOpenaiKeyTouched(false);
-      setOllamaLocalBaseUrlTouched(false);
       setOllamaHostedBaseUrlTouched(false);
       setOllamaHostedModelTouched(false);
       setOllamaHostedEmbeddingModelTouched(false);
@@ -450,7 +445,6 @@ export function AiConfigPage() {
               <option value="auto">Auto — try all configured providers in order</option>
               <option value="gemini">Gemini only</option>
               <option value="openai">OpenAI only</option>
-              <option value="ollama-local">Ollama (Local) only</option>
               <option value="ollama-hosted">Ollama (Hosted) only</option>
               <option value="ollama">Any configured Ollama</option>
             </select>
@@ -552,48 +546,6 @@ export function AiConfigPage() {
             </ProviderCard>
 
             <ProviderCard
-              title="Ollama (Local)"
-              accent={PROVIDER_COLORS.ollama}
-              description="Use your self-hosted model on the same machine or network"
-            >
-              <KeyStatus
-                masked={ollamaLocalBaseUrl || "Not configured"}
-                set={Boolean(ollamaLocalBaseUrl)}
-                fromDb={Boolean(config?.ollama_base_url_from_db)}
-                envFallback={Boolean(config?.env_fallback_ollama)}
-              />
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-400">Local URL</label>
-                  <input
-                    type="text"
-                    value={ollamaLocalBaseUrl}
-                    onChange={(e) => {
-                      setOllamaLocalBaseUrl(e.target.value);
-                      setOllamaLocalBaseUrlTouched(true);
-                    }}
-                    placeholder="http://127.0.0.1:11434"
-                    className={inputClass()}
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Use this for a local Ollama instance on the same machine or network.
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-400">Model</label>
-                  <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} className={selectClass()}>
-                    {ollamaModels.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </ProviderCard>
-
-            <ProviderCard
               title="Ollama (Hosted)"
               accent={PROVIDER_COLORS.ollama}
               description="Use a publicly accessible or hosted Ollama endpoint with Bearer token authentication"
@@ -627,6 +579,16 @@ export function AiConfigPage() {
                   <p className="mt-1 text-[11px] text-slate-500">
                     Base URL without /chat endpoint (e.g., https://your-host.com/api/ai)
                   </p>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-400">Model</label>
+                  <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} className={selectClass()}>
+                    {ollamaModels.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </ProviderCard>
