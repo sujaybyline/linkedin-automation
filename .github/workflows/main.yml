@@ -67,15 +67,21 @@ jobs:
       - name: Install & build frontend (production API URL)
         working-directory: frontend
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          # Prefer Actions secret; also accept Actions variable (common mix-up).
+          VITE_API_URL: ${{ secrets.VITE_API_URL || vars.VITE_API_URL }}
           VITE_SESSION_IDLE_MINUTES: ${{ vars.VITE_SESSION_IDLE_MINUTES || '30' }}
           VITE_SESSION_MAX_HOURS: ${{ vars.VITE_SESSION_MAX_HOURS || '8' }}
         run: |
           set -euo pipefail
           if [ -z "${VITE_API_URL:-}" ]; then
-            echo "::error::Missing secret VITE_API_URL (e.g. https://marketing.legatolxp.online)"
+            echo "::error::VITE_API_URL is empty."
+            echo "Add it under Settings → Secrets and variables → Actions → Secrets"
+            echo "Name must be exactly: VITE_API_URL"
+            echo "Value example: https://marketing.legatolxp.online"
+            echo "Do NOT put it only under Environment secrets unless this job uses that environment."
             exit 1
           fi
+          echo "Building frontend with VITE_API_URL set (length=${#VITE_API_URL})"
           npm ci
           npm run build
 
@@ -152,7 +158,7 @@ jobs:
           A2_NODEVENV_ACTIVATE: ${{ secrets.A2_NODEVENV_ACTIVATE }}
           A2_RESTART_CMD: ${{ secrets.A2_RESTART_CMD }}
           A2_APP_ROOT: ${{ secrets.A2_APP_ROOT }}
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || vars.VITE_API_URL }}
         run: |
           set -euo pipefail
           PORT="${A2_SSH_PORT:-22}"
