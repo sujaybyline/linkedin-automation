@@ -53,6 +53,8 @@ jobs:
     needs: [backend, frontend]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Required: your secrets live under Settings → Environments → Prod
+    environment: Prod
     steps:
       - uses: actions/checkout@v4
 
