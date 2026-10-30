@@ -104,8 +104,37 @@ jobs:
           PORT="${A2_SSH_PORT:-22}"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$A2_SSH_KEY" > ~/.ssh/a2_deploy_key
-          chmod 600 ~/.ssh/a2_deploy_key
+
+          # Normalize private key from GitHub secret (CRLF / literal \n / wrapping quotes)
+          KEY_FILE="$HOME/.ssh/a2_deploy_key"
+          python3 - <<'PY'
+          import os, pathlib
+          raw = os.environ["A2_SSH_KEY"].strip()
+          if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+              raw = raw[1:-1]
+          raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+          if "\\n" in raw and "-----BEGIN" in raw and "\n-----" not in raw.replace("\\n", ""):
+              # secret stored as one line with literal \n
+              raw = raw.replace("\\n", "\n")
+          if not raw.endswith("\n"):
+              raw += "\n"
+          path = pathlib.Path.home() / ".ssh" / "a2_deploy_key"
+          path.write_text(raw, encoding="utf-8")
+          path.chmod(0o600)
+          if "PRIVATE KEY" not in raw:
+              raise SystemExit("A2_SSH_KEY must be the PRIVATE key (contains PRIVATE KEY), not .pub")
+          print(f"Wrote deploy key ({len(raw)} bytes, begins with: {raw.splitlines()[0]})")
+          PY
+
+          if ! ssh-keygen -y -f "$KEY_FILE" >/dev/null 2>&1; then
+            echo "::error::A2_SSH_KEY is not a valid private key (libcrypto / parse failed)."
+            echo "On the server run: cat ~/.ssh/marketing"
+            echo "Paste the FULL private key into Environment secret A2_SSH_KEY (Prod)."
+            echo "Must start with -----BEGIN ... PRIVATE KEY----- and end with -----END ... PRIVATE KEY-----"
+            echo "Use an empty passphrase key. Do not paste marketing.pub"
+            exit 1
+          fi
+
           if [ -n "${A2_SSH_KNOWN_HOSTS:-}" ]; then
             printf '%s\n' "$A2_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           else
